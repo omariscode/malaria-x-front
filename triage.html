@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MalarIX — Triagem AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --background: #f7fafc;
+  --foreground: #1a202c;
+  --border: #e2e8f0;
+  --input: #edf2f7;
+  --primary: #1a365d;
+  --primary-foreground: #ffffff;
+  --secondary: #ebf4ff;
+  --muted: #e2e8f0;
+  --muted-foreground: #718096;
+  --accent: #3182ce;
+  --success: #38a169;
+  --success-light: #f0fff4;
+  --danger: #e53e3e;
+  --danger-foreground: #ffffff;
+  --danger-light: #fff5f5;
+  --sidebar: #1a365d;
+  --sidebar-foreground: #bee3f8;
+  --sidebar-active: #2b6cb0;
+  --card: #ffffff;
+  --card-border: #e2e8f0;
+  --font-body: 'Inter', sans-serif;
+  --radius: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-body); background: var(--background); color: var(--foreground); min-height: 100vh; display: flex; }
+button { cursor: pointer; font-family: inherit; }
+input[type="file"] { display: none; }
+
+.sidebar { width: 240px; background: var(--sidebar); color: var(--sidebar-foreground); display: flex; flex-direction: column; min-height: 100vh; flex-shrink: 0; }
+.sidebar-brand { padding: 24px; border-bottom: 1px solid var(--sidebar-active); display: flex; align-items: center; gap: 12px; }
+.sidebar-brand-icon { width: 32px; height: 32px; background: var(--accent); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sidebar-brand-icon svg { color: white; }
+.sidebar-brand-name { color: white; font-weight: 700; font-size: 14px; line-height: 1.25; }
+.sidebar-brand-sub { font-size: 11px; opacity: .6; }
+.sidebar-nav { padding: 16px 12px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.sidebar-link { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; color: var(--sidebar-foreground); opacity: .7; text-decoration: none; }
+.sidebar-link.active { background: var(--sidebar-active); opacity: 1; color: white; }
+.sidebar-user { padding: 16px 12px; border-top: 1px solid var(--sidebar-active); }
+.sidebar-user-inner { display: flex; align-items: center; gap: 12px; padding: 8px 12px; }
+.sidebar-user-avatar { width: 28px; height: 28px; border-radius: 50%; background: #4a7db5; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 600; }
+.sidebar-user-name { color: white; font-size: 13px; font-weight: 500; }
+.sidebar-user-role { font-size: 11px; opacity: .5; }
+
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.header { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 20px; font-weight: 700; }
+.header p { font-size: 13px; color: var(--muted-foreground); margin-top: 2px; }
+.header-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-foreground); }
+
+.content { flex: 1; display: flex; gap: 0; }
+.content-left { width: 384px; border-right: 1px solid var(--border); padding: 32px; display: flex; flex-direction: column; gap: 24px; flex-shrink: 0; overflow-y: auto; }
+.content-right { flex: 1; padding: 32px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; }
+
+.upload-zone { border: 2px dashed var(--muted); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; background: var(--input); transition: border-color .2s, background .2s; }
+.upload-zone.dragover { border-color: var(--accent); background: var(--secondary); }
+.upload-zone-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--secondary); display: flex; align-items: center; justify-content: center; }
+.upload-zone-icon svg { color: var(--accent); }
+.upload-zone-title { font-size: 13px; font-weight: 500; }
+.upload-zone-sub { font-size: 11px; color: var(--muted-foreground); }
+.upload-btn { font-size: 11px; color: var(--accent); font-weight: 500; border: 1px solid var(--accent); padding: 6px 12px; border-radius: var(--radius-md); background: transparent; }
+
+.thumb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.thumb-card { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--card-border); background: var(--card); position: relative; }
+.thumb-card.rejected { opacity: .7; }
+.thumb-img-wrap { position: relative; aspect-ratio: 1; }
+.thumb-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-badge { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.thumb-badge.accepted { background: var(--success-light); }
+.thumb-badge.rejected { background: var(--danger-light); }
+.thumb-badge.loading { background: var(--secondary); }
+.thumb-badge svg { width: 14px; height: 14px; }
+.thumb-info { padding: 8px; }
+.thumb-name { font-size: 11px; font-weight: 500; }
+.thumb-size { font-size: 11px; color: var(--muted-foreground); }
+.thumb-reject-reason { font-size: 10px; color: var(--danger); margin-top: 2px; }
+
+.alert { display: flex; align-items: flex-start; gap: 8px; padding: 10px; border-radius: var(--radius-md); font-size: 11px; }
+.alert-danger { background: var(--danger-light); border: 1px solid var(--danger); color: var(--danger); }
+.alert-danger .alert-label { font-weight: 600; }
+
+.btn-primary { display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--primary); color: var(--primary-foreground); padding: 12px; border-radius: var(--radius-md); border: none; font-size: 13px; font-weight: 600; width: 100%; }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary.loading { pointer-events: none; }
+.btn-outline { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); color: var(--foreground); padding: 10px 20px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; background: transparent; }
+
+.result-card { border-radius: var(--radius-xl); padding: 32px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.result-card.suspected_positive { background: var(--danger-light); border: 2px solid var(--danger); }
+.result-card.likely_negative { background: var(--success-light); border: 2px solid var(--success); }
+.result-card.uncertain { background: var(--secondary); border: 2px solid var(--accent); }
+.result-icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.result-card.suspected_positive .result-icon { background: var(--danger); }
+.result-card.likely_negative .result-icon { background: var(--success); }
+.result-card.uncertain .result-icon { background: var(--accent); }
+.result-icon svg { color: white; width: 32px; height: 32px; }
+.result-label { font-size: 24px; font-weight: 700; }
+.result-card.suspected_positive .result-label { color: var(--danger); }
+.result-card.likely_negative .result-label { color: var(--success); }
+.result-card.uncertain .result-label { color: var(--accent); }
+.result-desc { font-size: 13px; color: var(--muted-foreground); }
+.confidence-bar-wrap { width: 100%; max-width: 320px; }
+.confidence-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
+.confidence-header span:first-child { color: var(--muted-foreground); }
+.confidence-bar-track { width: 100%; height: 10px; background: var(--muted); border-radius: 999px; overflow: hidden; }
+.confidence-bar-fill { height: 100%; border-radius: 999px; transition: width .6s ease; }
+.result-card.suspected_positive .confidence-bar-fill { background: var(--danger); }
+.result-card.likely_negative .confidence-bar-fill { background: var(--success); }
+.result-card.uncertain .confidence-bar-fill { background: var(--accent); }
+
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-lg); padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; }
+.stat-label { font-size: 11px; color: var(--muted-foreground); }
+.stat-value { font-size: 24px; font-weight: 700; }
+.stat-sub { font-size: 11px; color: var(--muted-foreground); }
+.stat-value.danger { color: var(--danger); }
+
+.recommendation { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-lg); padding: 20px; display: flex; gap: 16px; }
+.recommendation-icon { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.recommendation-icon svg { color: var(--accent); width: 18px; height: 18px; }
+.recommendation h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.recommendation p { font-size: 13px; color: var(--muted-foreground); line-height: 1.625; }
+.recommendation strong { color: var(--foreground); }
+
+.actions { display: flex; align-items: center; gap: 12px; margin-top: auto; }
+.actions .ml-auto { margin-left: auto; }
+
+.result-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 64px 32px; color: var(--muted-foreground); text-align: center; flex: 1; }
+.result-placeholder-icon { width: 48px; height: 48px; border-radius: 50%; background: var(--secondary); display: flex; align-items: center; justify-content: center; }
+.result-placeholder-icon svg { color: var(--accent); width: 24px; height: 24px; }
+.result-placeholder h3 { font-size: 15px; font-weight: 600; color: var(--foreground); }
+.result-placeholder p { font-size: 13px; }
+
+.spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 0; color: var(--muted-foreground); text-align: center; }
+.empty-state-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--secondary); display: flex; align-items: center; justify-content: center; }
+.empty-state-icon svg { color: var(--accent); width: 20px; height: 20px; }
+
+.model-version { font-size: 11px; color: var(--muted-foreground); }
+
+.section-title { font-size: 14px; font-weight: 600; }
+.section-subtitle { font-size: 13px; color: var(--muted-foreground); }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
+    </div>
+    <div>
+      <div class="sidebar-brand-name">MalarIX</div>
+      <div class="sidebar-brand-sub">Triagem AI</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="sidebar-link" href="#">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a class="sidebar-link active" href="#">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8M3 22h18m-7 0a7 7 0 1 0 0-14h-1m-4 6h2m-2-2a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Zm3-6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg>
+      Nova Triagem
+    </a>
+    <a class="sidebar-link" href="#">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      Histórico
+    </a>
+    <a class="sidebar-link" href="#">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+      Configurações
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="sidebar-user-inner">
+      <div class="sidebar-user-avatar">DS</div>
+      <div>
+        <div class="sidebar-user-name">Dr. Silva</div>
+        <div class="sidebar-user-role">Laboratório Central</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="header">
+    <div>
+      <h1>Nova Triagem</h1>
+      <p>Envie imagens de lâminas para análise por IA</p>
+    </div>
+    <div class="header-info">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+      <span>Máx. 20 imagens · JPG ou PNG · até 10 MB cada</span>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="content-left">
+      <div>
+        <h2 class="section-title">Imagens Selecionadas</h2>
+        <p class="section-subtitle" id="fileCounter">Nenhum arquivo selecionado</p>
+      </div>
+
+      <div class="upload-zone" id="dropZone">
+        <div class="upload-zone-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13v8m-8-6.101A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m8 17 4-4 4 4"/></svg>
+        </div>
+        <div>
+          <div class="upload-zone-title">Arraste imagens aqui</div>
+          <div class="upload-zone-sub">ou clique para selecionar arquivos</div>
+        </div>
+        <button class="upload-btn" id="selectFilesBtn" type="button">Selecionar arquivos</button>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png" multiple>
+      </div>
+
+      <div class="thumb-grid" id="thumbGrid"></div>
+
+      <div class="alert alert-danger hidden" id="rejectAlert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4m0 4h.01"/></svg>
+        <div>
+          <span class="alert-label" id="rejectAlertLabel"></span>
+          <span id="rejectAlertMsg"></span>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="submitBtn" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8M3 22h18m-7 0a7 7 0 1 0 0-14h-1m-4 6h2m-2-2a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Zm3-6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg>
+        Realizar Triagem
+      </button>
+    </div>
+
+    <div class="content-right">
+      <div class="flex" style="display:flex;align-items:center;justify-content:space-between">
+        <h2 class="section-title">Resultado da Análise</h2>
+        <span class="model-version" id="modelVersion"></span>
+      </div>
+
+      <div id="resultArea">
+        <div class="result-placeholder" id="resultPlaceholder">
+          <div class="result-placeholder-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <h3>Nenhuma análise realizada</h3>
+          <p>Selecione imagens e clique em "Realizar Triagem"</p>
+        </div>
+
+        <div id="resultContent" class="hidden">
+          <div class="result-card" id="resultCard">
+            <div class="result-icon" id="resultIcon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+            </div>
+            <div>
+              <div class="result-label" id="resultLabel">—</div>
+              <div class="result-desc" id="resultDesc">—</div>
+            </div>
+            <div class="confidence-bar-wrap">
+              <div class="confidence-header">
+                <span>Confiança do modelo</span>
+                <span class="font-semibold" id="confidenceText">0%</span>
+              </div>
+              <div class="confidence-bar-track">
+                <div class="confidence-bar-fill" id="confidenceBar" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+              <span class="stat-label">Imagens processadas</span>
+              <span class="stat-value" id="statProcessed">0</span>
+              <span class="stat-sub" id="statProcessedSub">de 0 enviadas</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Imagens rejeitadas</span>
+              <span class="stat-value danger" id="statRejected">0</span>
+              <span class="stat-sub">qualidade insuficiente</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Confiança</span>
+              <span class="stat-value" id="statConfidence">0%</span>
+              <span class="stat-sub" id="statConfidenceSub">—</span>
+            </div>
+          </div>
+
+          <div class="recommendation">
+            <div class="recommendation-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2m4 7h4m-4 5h4m-8-5h.01M8 16h.01"/></svg>
+            </div>
+            <div>
+              <h3>Recomendação Clínica</h3>
+              <p id="recommendationText">Resultado indica suspeita de malária com alta confiança. Recomenda-se confirmação por exame de gota espessa e avaliação clínica imediata. Este resultado é auxiliar e não substitui o diagnóstico médico.</p>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn-outline" id="exportBtn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect width="12" height="8" x="6" y="14" rx="1"/></svg>
+              Exportar Laudo
+            </button>
+            <button class="btn-outline" id="resetBtn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5m5 4a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              Nova Triagem
+            </button>
+            <button class="btn-outline ml-auto" id="saveBtn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+              Salvar no Histórico
+            </button>
+          </div>
+        </div>
+
+        <div id="loadingState" class="hidden">
+          <div class="result-placeholder">
+            <div class="spinner" style="width:40px;height:40px;border-width:3px;border-color:rgba(49,130,206,.3);border-top-color:#3182ce"></div>
+            <h3>Processando imagens...</h3>
+            <p>Aguardando resposta do modelo de IA</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'https://malarix.onrender.com';
+
+const state = { files: [], result: null };
+
+const $ = id => document.getElementById(id);
+const fileInput = $('fileInput');
+const dropZone = $('dropZone');
+const selectFilesBtn = $('selectFilesBtn');
+const thumbGrid = $('thumbGrid');
+const fileCounter = $('fileCounter');
+const submitBtn = $('submitBtn');
+const rejectAlert = $('rejectAlert');
+const rejectAlertLabel = $('rejectAlertLabel');
+const rejectAlertMsg = $('rejectAlertMsg');
+
+const resultPlaceholder = $('resultPlaceholder');
+const resultContent = $('resultContent');
+const loadingState = $('loadingState');
+const resultCard = $('resultCard');
+const resultLabel = $('resultLabel');
+const resultDesc = $('resultDesc');
+const resultIcon = $('resultIcon');
+const confidenceText = $('confidenceText');
+const confidenceBar = $('confidenceBar');
+const statProcessed = $('statProcessed');
+const statProcessedSub = $('statProcessedSub');
+const statRejected = $('statRejected');
+const statConfidence = $('statConfidence');
+const statConfidenceSub = $('statConfidenceSub');
+const modelVersion = $('modelVersion');
+const recommendationText = $('recommendationText');
+const resetBtn = $('resetBtn');
+const exportBtn = $('exportBtn');
+const saveBtn = $('saveBtn');
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function updateFileCounter() {
+  const n = state.files.length;
+  fileCounter.textContent = n === 0 ? 'Nenhum arquivo selecionado' : `${n} arquivo${n !== 1 ? 's' : ''} selecionado${n !== 1 ? 's' : ''}`;
+  submitBtn.disabled = n === 0;
+}
+
+function renderThumbs() {
+  let html = '';
+  let rejectedCount = 0;
+  let lastReject = '';
+  state.files.forEach((f, i) => {
+    const rejected = f.status === 'rejected';
+    const loading = f.status === 'loading';
+    const accepted = f.status === 'accepted';
+    if (rejected) { rejectedCount++; lastReject = f.reason || ''; }
+
+    let badge = '';
+    if (loading) {
+      badge = `<div class="thumb-badge loading"><div class="spinner" style="width:14px;height:14px;border-width:2px;border-color:rgba(49,130,206,.3);border-top-color:#3182ce"></div></div>`;
+    } else if (accepted) {
+      badge = `<div class="thumb-badge accepted"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--success)"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg></div>`;
+    } else if (rejected) {
+      badge = `<div class="thumb-badge rejected"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--danger)"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6m0-6 6 6"/></svg></div>`;
+    }
+
+    const rejectReason = rejected && f.reason ? `<div class="thumb-reject-reason">${f.reason}</div>` : '';
+
+    html += `
+      <div class="thumb-card${rejected ? ' rejected' : ''}">
+        <div class="thumb-img-wrap">
+          <img src="${f.dataURL}" alt="${f.name}">
+          ${badge}
+        </div>
+        <div class="thumb-info">
+          <div class="thumb-name truncate">${f.name}</div>
+          <div class="thumb-size">${formatSize(f.size)}</div>
+          ${rejectReason}
+        </div>
+      </div>
+    `;
+  });
+  thumbGrid.innerHTML = html;
+
+  if (rejectedCount > 0) {
+    const label = `${rejectedCount} imagem${rejectedCount > 1 ? 'ns' : ''} rejeitada${rejectedCount > 1 ? 's' : ''}:`;
+    rejectAlertLabel.textContent = label + ' ';
+    rejectAlertMsg.textContent = lastReject;
+    rejectAlert.classList.remove('hidden');
+  } else {
+    rejectAlert.classList.add('hidden');
+  }
+}
+
+function addFiles(fileList) {
+  let added = 0;
+  for (const file of fileList) {
+    if (state.files.length >= 20) {
+      alert('Máximo de 20 imagens por requisição.');
+      break;
+    }
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      alert(`"${file.name}" não é JPG ou PNG.`);
+      continue;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`"${file.name}" excede o limite de 10 MB.`);
+      continue;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      state.files.push({
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataURL: e.target.result,
+        status: 'pending'
+      });
+      updateFileCounter();
+      renderThumbs();
+    };
+    reader.readAsDataURL(file);
+    added++;
+  }
+  return added;
+}
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  addFiles(e.dataTransfer.files);
+});
+
+selectFilesBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  addFiles(fileInput.files);
+  fileInput.value = '';
+});
+
+submitBtn.addEventListener('click', predictBatch);
+
+async function predictBatch() {
+  const files = state.files.filter(f => f.status !== 'rejected').map(f => f.file);
+  if (files.length === 0) return;
+
+  resultPlaceholder.classList.add('hidden');
+  resultContent.classList.add('hidden');
+  loadingState.classList.remove('hidden');
+
+  state.files.forEach(f => { if (f.status !== 'rejected') f.status = 'loading'; });
+  renderThumbs();
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<div class="spinner"></div> Analisando...';
+  submitBtn.classList.add('loading');
+
+  try {
+    const formData = new FormData();
+    files.forEach(f => formData.append('files', f));
+
+    const res = await fetch(`${API_BASE}/api/v1/predict-batch`, { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || data.error || `Erro ${res.status}`);
+    }
+
+    state.result = data;
+
+    const total = files.length;
+    const processed = data.images_processed;
+    const rejected = data.images_rejected;
+
+    state.files.forEach((f, i) => {
+      if (i < processed) f.status = 'accepted';
+      else if (i < processed + rejected) f.status = 'rejected';
+    });
+
+    renderThumbs();
+    showResult(data, total);
+  } catch (err) {
+    loadingState.classList.add('hidden');
+    resultPlaceholder.classList.remove('hidden');
+    resultPlaceholder.querySelector('h3').textContent = 'Erro na análise';
+    resultPlaceholder.querySelector('p').textContent = err.message;
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8M3 22h18m-7 0a7 7 0 1 0 0-14h-1m-4 6h2m-2-2a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Zm3-6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg> Realizar Triagem';
+    submitBtn.classList.remove('loading');
+    state.files.forEach(f => { if (f.status === 'loading') f.status = 'pending'; });
+    renderThumbs();
+  }
+}
+
+function showResult(data, total) {
+  loadingState.classList.add('hidden');
+  resultContent.classList.remove('hidden');
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8M3 22h18m-7 0a7 7 0 1 0 0-14h-1m-4 6h2m-2-2a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Zm3-6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg> Realizar Triagem';
+  submitBtn.classList.remove('loading');
+
+  const label = data.label;
+  const confidence = data.confidence;
+  const pct = (confidence * 100).toFixed(1);
+  const modelVer = data.model_version;
+  const processed = data.images_processed;
+  const rejected = data.images_rejected;
+
+  modelVersion.textContent = `Modelo: ${modelVer}`;
+
+  resultCard.className = 'result-card ' + label;
+
+  if (label === 'suspected_positive') {
+    resultIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>`;
+    resultLabel.textContent = 'Suspeito Positivo';
+    resultDesc.textContent = 'O modelo identificou sinais consistentes com malária';
+  } else if (label === 'likely_negative') {
+    resultIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>`;
+    resultLabel.textContent = 'Provável Negativo';
+    resultDesc.textContent = 'O modelo não identificou sinais sugestivos de malária';
+  } else {
+    resultIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>`;
+    resultLabel.textContent = 'Inconclusivo';
+    resultDesc.textContent = 'O resultado não foi conclusivo. Recomenda-se repetir o exame.';
+  }
+
+  confidenceText.textContent = pct + '%';
+  confidenceBar.style.width = pct + '%';
+
+  statProcessed.textContent = processed;
+  statProcessedSub.textContent = `de ${total} enviadas`;
+  statRejected.textContent = rejected;
+  statConfidence.textContent = pct + '%';
+  statConfidenceSub.textContent = confidence >= 0.8 ? 'alta confiança' : confidence >= 0.5 ? 'média confiança' : 'baixa confiança';
+
+  if (label === 'suspected_positive') {
+    recommendationText.innerHTML = 'Resultado indica suspeita de malária com alta confiança. Recomenda-se confirmação por exame de gota espessa e avaliação clínica imediata. Este resultado é auxiliar e não substitui o diagnóstico médico.';
+  } else if (label === 'likely_negative') {
+    recommendationText.innerHTML = 'Resultado sugere baixa probabilidade de malária. Manter acompanhamento clínico se sintomas persistirem. Este resultado é auxiliar e não substitui o diagnóstico médico.';
+  } else {
+    recommendationText.innerHTML = 'O resultado da análise foi inconclusivo. Recomenda-se repetir a coleta e realizar novo exame. Este resultado é auxiliar e não substitui o diagnóstico médico.';
+  }
+}
+
+resetBtn.addEventListener('click', () => {
+  state.files = [];
+  state.result = null;
+  thumbGrid.innerHTML = '';
+  updateFileCounter();
+  rejectAlert.classList.add('hidden');
+  resultPlaceholder.classList.remove('hidden');
+  resultContent.classList.add('hidden');
+  loadingState.classList.add('hidden');
+  resultPlaceholder.querySelector('h3').textContent = 'Nenhuma análise realizada';
+  resultPlaceholder.querySelector('p').textContent = 'Selecione imagens e clique em "Realizar Triagem"';
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8M3 22h18m-7 0a7 7 0 1 0 0-14h-1m-4 6h2m-2-2a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Zm3-6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg> Realizar Triagem';
+  submitBtn.classList.remove('loading');
+  modelVersion.textContent = '';
+});
+
+exportBtn.addEventListener('click', () => {
+  if (!state.result) return;
+  const { label, confidence, images_processed, images_rejected, model_version } = state.result;
+  const lines = [
+    '=== MALARIX - LAUDO DE TRIAGEM ===',
+    `Data: ${new Date().toISOString()}`,
+    `Modelo: ${model_version}`,
+    `Resultado: ${label === 'suspected_positive' ? 'Suspeito Positivo' : label === 'likely_negative' ? 'Provável Negativo' : 'Inconclusivo'}`,
+    `Confiança: ${(confidence * 100).toFixed(1)}%`,
+    `Imagens processadas: ${images_processed}`,
+    `Imagens rejeitadas: ${images_rejected}`,
+    '',
+    'Este resultado é auxiliar e não substitui o diagnóstico médico.',
+    '================================'
+  ].join('\n');
+  const blob = new Blob([lines], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `laudo_malarix_${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+saveBtn.addEventListener('click', () => {
+  if (!state.result) return;
+  const saved = JSON.parse(localStorage.getItem('malarix_history') || '[]');
+  saved.unshift({ ...state.result, saved_at: new Date().toISOString() });
+  localStorage.setItem('malarix_history', JSON.stringify(saved.slice(0, 100)));
+  alert('Resultado salvo no histórico!');
+});
+
+function truncate(str, n) {
+  return str.length > n ? str.slice(0, n - 1) + '…' : str;
+}
+</script>
+</body>
+</html>
